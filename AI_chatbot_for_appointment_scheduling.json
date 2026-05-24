@@ -1,0 +1,371 @@
+{
+  "name": "AI chatbot for appointment scheduling",
+  "nodes": [
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionId }}",
+        "contextWindowLength": 20
+      },
+      "id": "9c02ea78-74fb-4cbe-8b44-14607a8d76a2",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        224,
+        1456
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "827ee56a-b7da-41a2-934e-498c933c7cbb",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        640,
+        1168
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "e7c3d21a-33d9-47c9-86ca-f5cb0158ead9",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [
+        128,
+        1344
+      ],
+      "typeVersion": 1,
+      "retryOnFail": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "r58TxmXLFEXTr6FE",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "Get_availability",
+        "description": "Call this tool to check my calendar for availability before booking an appointment. This will result in all events for the next 2 weeks. Review all events and do not double book.",
+        "workflowId": {
+          "__rl": true,
+          "value": "tDVpNczsb8rGCkgb",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/tDVpNczsb8rGCkgb",
+          "cachedResultName": "chatbot Sub-Workflow 1"
+        },
+        "fields": {
+          "values": [
+            {
+              "name": "route",
+              "stringValue": "availability"
+            }
+          ]
+        }
+      },
+      "id": "1e27d28f-3bfa-4b35-b03a-63279ccd9a01",
+      "name": "Get Availability",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "position": [
+        512,
+        1664
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "options": {
+          "allowedOrigins": "*",
+          "responseMode": "responseNode"
+        }
+      },
+      "id": "2bdc83d6-68b6-4338-9ad7-5a99b03e1b6d",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "position": [
+        -624,
+        1184
+      ],
+      "webhookId": "f406671e-c954-4691-b39a-66c90aa2f103",
+      "typeVersion": 1,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "Ensure these referance this workflow, replace placeholders",
+        "height": 205.34013605442183,
+        "width": 311.6936390497898
+      },
+      "id": "b7225d19-e981-47f9-b58e-53cb61e90fb7",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        336,
+        1584
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "=You are an intelligent personal assistant to Hamza, Founder at ibnbilal automations (ai consultancy and automation agency) responsible for coordinating appointments and gathering relevant information from customers. Your tasks are to:\n\n- Understand when the customer is available by asking for suitable days and times (ensuring they are aware we are in a pkt timezone)\n- Check the calendar to identify available slots that match their preferences. Pay attention to each event's start and end time and do not double book, you will be given all events for the next 14 days\n- Ask the customer what they would like to discuss during the appointment to ensure proper preparation.\n- Get the customer's name, company name and email address to book the appointment\n- Make the conversation friendly and natural. Confirm the appointment details with the customer and let them know I’ll be ready to discuss what they’d like.\n- After you have checked the calendar, book the appointment accordingly, without double booking. Confirm the customer's timezone and adjust the appointment for PKT (pakistan standard time).\n- If the customer isn't ready to book, you can send an email for a human to respond to, ensure you gather a detailed enquiry from the customer including contact details and project information.Ensure the message contains enough information for a human to respond, always include project details, if the customer hasn't provided project details, ask.\n- Alwways suggest an appointment before sending a message, appointment are your primary goal, message are a fall back\n\nExample questions:\n\n\"Hi there! we'd love to help arrange a time that works for us to meet. Could you let us know which days and times are best for you? We’ll check the calendar and book in a suitable slot.\"\n\n\"Could you please let us know what you’d like to discuss during the appointment? This helps us prepare in advance and make our time together as productive as possible.\"\n\n\"Before we put you in touch with a human, please can you provide more information about the project you have in mind?\" \n//You must gather project info at all times, even if the enquiry is about pricing/costs.\n\nIf the time the customer suggests is not available, suggest the nearest alternative appointment based on existing events, do not book an appointment outside of freeTimeSlots\n\nImportant information:\n- All appointments need 48 hours' notice from {{ \n  new Date().toLocaleString(\"en-GB\", { timeZone: \"asia/Karachi\", hour12: false })\n  .split(\", \")[0].split(\"/\").reverse().join(\"-\") \n  + \"T\" + new Date().toLocaleTimeString(\"en-GB\", { timeZone: \"asia/karachi\", hour12: false }) + \":00.000Z\" \n}} (current date and time in the pakistan) // this is non-negotiable, but discuss with care and be friendly, only let the customer know this if required\n- Business hours are 8am - 6pm Monday to Friday only Asia/Karachi timezone, ensure the customer is aware of this and help them book during PKT hours, you must confirm their timezone to do this!\n- Do not book appointments on a Saturday or sunday\n- Do not book appointments outside of freeTimeSlots\n- Always check the next 14 days, and review all events before providing availability \n- All appointments are for a max of 30 minutes\n- You must never offer an appointment without checking the calendar, if you cannot check the calendar, you cannot book and must let the customer know you can not book an appointment right now.\n- Always offer the soonest appointment available if the customer's preferred time is unavailable\n- When confirming an appointment, be thankful and excited!\n- Initial 30 minute consultation are free of charge\n\n\nMessages and description:\n- When creating descriptions or sending messages, always ensure enough detail is provided for preparation, meaning you can ask follow-up questions to extract further information as required. For example, if a customer asks about pricing, gather some information about the project so our team can provide accurate pricing, and apply this logic throughout\n\n\ntools:\n\nSend Message: Call this tool when the customer wants to speak to a human, or is not ready to make an appointment or if the customer has questions outside of your remit. The tool will send an email to our founder, Hamza. Always send the customer's full name, company and email address along with a detailed message about the enquiry. You must always gather project details. the message should be from ai asssistant to the owner/founder informing about the particular customer and his/her details.\n\nGet Availability: call this tool to get the slots available for the appointment. always call this tool before making an appointment.\n\nMake Appointment: Call this tool to make appointment.\n\n\nComments:\n//!IMPORTANT! Do not offer any times without checking the calendar, do not make availability up\n//**Do not discuss anything other than appointment booking, if the query does not relate to an appointment, advise them you cannot help at this time.** be friendly and always offer to book an appointment to discuss their query\n//When the appointment is confirmed, let the customer know, by name, that they will be meeting our founder, Hamza for a 30 minute consultation, and that they will receive a calendar invite by email, ensure they accept the invite to confirm the appointment.\n//Always respond as a highly professional executive PA, remember this is the customer's first engagement, they do not know us or Wayne at this stage\n//Do not refer to yourself as me or I, instead communicate like an organisation, using terms like 'us'\n//Always gather project for descriptions and messages"
+        }
+      },
+      "id": "5660f01e-6969-48c5-8cec-7305319563ba",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        224,
+        1168
+      ],
+      "typeVersion": 1.6
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "158a0b91-534d-4745-b10e-8a7c97050861",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.chatInput }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e90bf36c-bc4f-4b13-a15f-71c4229277c7",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        -400,
+        1184
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"output\": \"Hi, how can I help you today?\"\n}",
+        "options": {}
+      },
+      "id": "5d74a16a-e627-4dc0-8c64-b3a6c43cf760",
+      "name": "Respond With Initial Message",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        -112,
+        1296
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "content": "modify timezones",
+        "height": 238,
+        "width": 208,
+        "color": 6
+      },
+      "id": "0ac10094-be19-453c-a3ad-6dfaa530a9e8",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        528,
+        1328
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "926802204220574fc5eed7f2875bcb56c94be37a2aab969ca011119f45af7ade@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "business automation"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', `The date and start time of the appointment in toISOString format with timezone for asia/Karachi`, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', `The date and end time of the appointment in toISOString format, always 30 minutes after the dateStartTime,  format with timezone for Asia/Karachi`, 'string') }}",
+        "additionalFields": {
+          "attendees": [
+            "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('attendees0_Attendees', `The customers email address.`, 'string') }}"
+          ],
+          "color": "7",
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Description', `Detailed description of the meeting, will be sent to us and the customer`, 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', `Meetings with Hamza at IBNBILAL Automations`, 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        608,
+        1408
+      ],
+      "id": "18ea5d02-3e6e-419a-b85b-675b0a582d50",
+      "name": "Make Appointment",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "GfuThKqQ8G3QHgy1",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Subject', `the subject of the email specifying the customer name, company and what they want instead of the appointment.`, 'string') }}",
+        "emailType": "html",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', `Always send the customer's full name, company and email address along with a detailed message about the enquiry and what the customer wants. send it in valid HTML format and do the correct formatting to make it professional and aesthetically pleasing.`, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        384,
+        1664
+      ],
+      "id": "42f91f29-5d1f-4a24-ab59-c4423d3f58b5",
+      "name": "Send Message",
+      "webhookId": "5eb10427-5ce8-4fa9-b254-35586ecf22aa",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "6HAxiaBkDf7JeRBA",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond With Initial Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Availability": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Appointment": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Message": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "a0023014-05e8-4495-9c16-476e8ed2b453",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f84d20e610c0e6ca883ca3340e5032dcfe7009e088894ebc7a64ac407ed3b97c"
+  },
+  "id": "pLEtda5jV6Py4cZn",
+  "tags": []
+}

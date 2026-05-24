@@ -1,0 +1,225 @@
+{
+  "name": "chatbot Sub-Workflow 1",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c0b6e779-0f7b-41f0-81f8-457f2b31ccfe",
+              "name": "response",
+              "type": "array",
+              "value": "={{ $json.freeTimeSlots.toJsonString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3253a6a9-b2c8-4208-a979-7ec33e219a9a",
+      "name": "varResponse",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1152,
+        224
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Settings - Adjusted for Lahore Time (PKT)\nconst businessHoursStart = \"08:00:00+05:00\"; \nconst businessHoursEnd = \"17:30:00+05:00\";   \n\n// 2. Grab all incoming items\nconst inputData = $input.all().map(item => item.json); \n\nfunction getDateWithTime(dateString, time) {\n  const datePart = new Date(dateString).toISOString().split(\"T\")[0];\n  return new Date(`${datePart}T${time.replace('+05:00', '')}+05:00`);\n}\n\nfunction getDayOfWeek(dateString) {\n  const daysOfWeek = [\"Sunday\", \"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\", \"Saturday\"];\n  return daysOfWeek[new Date(dateString).getDay()];\n}\n\nfunction addDays(date, days) {\n  const result = new Date(date);\n  result.setDate(result.getDate() + days);\n  return result;\n}\n\nfunction formatDate(date) {\n  return date.toISOString().split('T')[0];\n}\n\n// 3. UPDATED LOGIC: Set the window to exactly 2 weeks starting TODAY\nconst today = new Date();\n// Normalize to midnight UTC to avoid partial day issues\nconst minDate = new Date(today.toISOString().split('T')[0]); \nconst maxDate = addDays(minDate, 13); // Today + 13 more days = 14 days total\n\nconst eventsByDate = {};\ninputData.forEach(event => {\n  if (event.start && (event.start.dateTime || event.start.date)) {\n    // Handle both timed events and all-day events for sorting\n    const dateKey = new Date(event.start.dateTime || event.start.date).toISOString().split(\"T\")[0];\n    \n    if (!eventsByDate[dateKey]) eventsByDate[dateKey] = [];\n    \n    if (event.transparency !== \"transparent\" && event.start.dateTime) {\n      eventsByDate[dateKey].push({\n        start: new Date(event.start.dateTime),\n        end: new Date(event.end.dateTime)\n      });\n    }\n  }\n});\n\nconst freeTimeSlots = [];\n\n// Loop through exactly 14 days\nfor (let currentDate = new Date(minDate); currentDate <= maxDate; currentDate = addDays(currentDate, 1)) {\n    const dateStr = formatDate(currentDate);\n    const busyEvents = eventsByDate[dateStr] || [];\n    const businessStart = getDateWithTime(dateStr, businessHoursStart);\n    const businessEnd = getDateWithTime(dateStr, businessHoursEnd);\n    \n    // If no busy events, the whole business day is free\n    if (busyEvents.length === 0) {\n      freeTimeSlots.push({\n        date: dateStr,\n        dayOfWeek: getDayOfWeek(dateStr),\n        freeStart: businessStart.toISOString(),\n        freeEnd: businessEnd.toISOString()\n      });\n      continue;\n    }\n    \n    busyEvents.sort((a, b) => a.start - b.start);\n    \n    // Check gap before first event\n    if (busyEvents[0].start > businessStart) {\n      freeTimeSlots.push({\n        date: dateStr,\n        dayOfWeek: getDayOfWeek(dateStr),\n        freeStart: businessStart.toISOString(),\n        freeEnd: busyEvents[0].start.toISOString()\n      });\n    }\n    \n    // Check gaps between events\n    for (let i = 0; i < busyEvents.length - 1; i++) {\n      if (busyEvents[i].end < busyEvents[i+1].start) {\n        freeTimeSlots.push({\n          date: dateStr,\n          dayOfWeek: getDayOfWeek(dateStr),\n          freeStart: busyEvents[i].end.toISOString(),\n          freeEnd: busyEvents[i+1].start.toISOString()\n        });\n      }\n    }\n    \n    // Check gap after last event\n    if (busyEvents[busyEvents.length - 1].end < businessEnd) {\n      freeTimeSlots.push({\n        date: dateStr,\n        dayOfWeek: getDayOfWeek(dateStr),\n        freeStart: busyEvents[busyEvents.length - 1].end.toISOString(),\n        freeEnd: businessEnd.toISOString()\n      });\n    }\n}\n\nreturn [{ json: { freeTimeSlots } }];"
+      },
+      "id": "eceb01d1-aad7-4cc9-9ca9-e736ed3d62b3",
+      "name": "freeTimeSlots",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        928,
+        224
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "availability"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "availability"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "52fd844b-cc8d-471f-a56a-40e119b66194",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "message"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "message"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "73f1b356-8c4e-478a-bc14-bf0e8354b5a6",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        480,
+        224
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "926802204220574fc5eed7f2875bcb56c94be37a2aab969ca011119f45af7ade@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "business automation"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $now.plus(2, 'days') }}",
+        "timeMax": "={{ $now.plus({ week: 2 }) }}",
+        "options": {
+          "timeZone": {
+            "__rl": true,
+            "value": "Asia/Karachi",
+            "mode": "list",
+            "cachedResultName": "Asia/Karachi"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        704,
+        224
+      ],
+      "id": "8abadbb7-5e7f-4642-b414-2435c67b8d1a",
+      "name": "Get many events",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "GfuThKqQ8G3QHgy1",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "route"
+            },
+            {
+              "name": "Query"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        256,
+        224
+      ],
+      "id": "83550fad-c798-47ff-bd58-d02eb673aaef",
+      "name": "Execute workflow trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "freeTimeSlots": {
+      "main": [
+        [
+          {
+            "node": "varResponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Get many events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get many events": {
+      "main": [
+        [
+          {
+            "node": "freeTimeSlots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute workflow trigger": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "864296fc-6d5f-427f-9f3a-975b455c477d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f84d20e610c0e6ca883ca3340e5032dcfe7009e088894ebc7a64ac407ed3b97c"
+  },
+  "id": "tDVpNczsb8rGCkgb",
+  "tags": []
+}
