@@ -1,6 +1,6 @@
 ![AI Appointment Scheduling Chatbot](./banner.png)
 
-[n8n](https://img.shields.io/badge/n8n-workflow-orange)
+![n8n](https://img.shields.io/badge/n8n-workflow-orange)
 ![License](https://img.shields.io/badge/license-Personal%20%26%20Commercial-blue)
 ![AI](https://img.shields.io/badge/AI-OpenAI%20Compatible-green)
 
