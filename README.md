@@ -123,7 +123,7 @@ If what you need doesn't fit the template, that's exactly when you should [reach
 
 I build AI agents, automation pipelines, and workflow systems for businesses that want to stop doing things manually.
 
-This chatbot is one example. I've also built lead generation pipelines, document processing systems, internal ops tools, and multi-agent workflows — using n8n, Python, and whatever AI stack fits the use case.
+This chatbot is one example. I've also built lead generation pipelines, document processing systems, internal ops tools, and multi-agent workflows — using n8n and whatever AI stack fits the use case.
 
 If you have a process that's eating your team's time, I can probably automate it.
 
