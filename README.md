@@ -16,7 +16,7 @@ If you need something like this — or something more complex — built for your
 
 ## 📽️ Demo
 
-🎥 **See it in action:** [Watch the demo](https://loom.com/share/your-link-here)
+🎥 **See it in action:** [coming soon](paste link)
 
 ---
 
